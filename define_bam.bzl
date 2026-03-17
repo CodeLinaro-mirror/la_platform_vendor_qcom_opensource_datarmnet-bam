@@ -16,7 +16,7 @@ def define_bam(target, variant):
  
     ddk_module(
         name = "{}_bam".format(kernel_build_variant),
-        out = "rmnet_bam.ko",
+        out = "bam/rmnet_bam.ko",
         srcs = [
             "bam/msm_rmnet_bam.c",
         ],
