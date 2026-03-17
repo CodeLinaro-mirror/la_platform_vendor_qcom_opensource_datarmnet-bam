@@ -2,7 +2,7 @@
 load(":define_bam.bzl", "define_bam")
 load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
 
-define_bam("shikra", "consolidated")
+define_bam("shikra", "consolidate")
 define_bam("shikra", "perf")
 
 ddk_headers(
