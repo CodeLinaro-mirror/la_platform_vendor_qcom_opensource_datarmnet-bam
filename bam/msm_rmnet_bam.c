@@ -20,6 +20,7 @@
 #include <linux/msm_rmnet.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
+#include <linux/version.h>
 
 #include <net/pkt_sched.h>
 
@@ -152,7 +153,11 @@ DEVICE_ATTR(timeout, 0664, timeout_show, timeout_store);
 
 
 /* Forward declaration */
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 14, 14))
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
+#else
+static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, void __user *data, int cmd);
+#endif
 static struct platform_driver bam_rmnet_drivers[BAM_DMUX_NUM_CHANNELS];
 
 static struct net_device *netdevs[BAM_DMUX_NUM_CHANNELS];
@@ -431,12 +436,12 @@ static int rmnet_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
 	unsigned long flags;
 	int awake;
-	int ret = 0;
+	int ret = NETDEV_TX_OK;
 
 	if (netif_queue_stopped(dev)) {
 		pr_err("[%s]fatal: rmnet_xmit called when "
@@ -451,7 +456,7 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		netif_stop_queue(dev);
 		p->waiting_for_ul_skb = skb;
 		spin_unlock_irqrestore(&p->lock, flags);
-		ret = 0;
+		ret = NETDEV_TX_OK;
 		goto exit;
 	}
 	spin_unlock_irqrestore(&p->lock, flags);
@@ -469,7 +474,7 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (ret == -EFAULT) {
 		netif_carrier_off(dev);
 		dev_kfree_skb_any(skb);
-		ret = 0;
+		ret = NETDEV_TX_OK;
 		goto exit;
 	}
 
@@ -516,7 +521,11 @@ static const struct net_device_ops rmnet_ops_ether = {
 	.ndo_start_xmit = rmnet_xmit,
 	.ndo_get_stats = rmnet_get_stats,
 	.ndo_tx_timeout = rmnet_tx_timeout,
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 14, 14))
 	.ndo_do_ioctl = rmnet_ioctl,
+#else
+	.ndo_siocdevprivate = rmnet_ioctl,
+#endif
 	.ndo_change_mtu = rmnet_change_mtu,
 	.ndo_set_mac_address = eth_mac_addr,
 	.ndo_validate_addr = eth_validate_addr,
@@ -528,7 +537,11 @@ static const struct net_device_ops rmnet_ops_ip = {
 	.ndo_start_xmit = rmnet_xmit,
 	.ndo_get_stats = rmnet_get_stats,
 	.ndo_tx_timeout = rmnet_tx_timeout,
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 14, 14))
 	.ndo_do_ioctl = rmnet_ioctl,
+#else
+	.ndo_siocdevprivate = rmnet_ioctl,
+#endif
 	.ndo_change_mtu = rmnet_change_mtu,
 	.ndo_set_mac_address = 0,
 	.ndo_validate_addr = 0,
@@ -603,7 +616,11 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 	return rc;
 }
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 14, 14))
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+#else
+static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, void __user *data, int cmd)
+#endif
 {
 	struct rmnet_private *p = netdev_priv(dev);
 	u32 old_opmode = p->operation_mode;
@@ -737,7 +754,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		pr_err("[%s] error: rmnet_ioct called for unsupported cmd[%d]",
+		pr_err("[%s] error: rmnet_ioctl called for unsupported cmd[%d]",
 			dev->name, cmd);
 		return -EINVAL;
 	}

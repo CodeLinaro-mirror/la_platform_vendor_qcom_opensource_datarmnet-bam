@@ -23,7 +23,10 @@ def define_bam(target, variant):
         kernel_build = kernel_build,
         deps = deps + [
             ":include_headers",
-        ],
+	] + select({
+		"//build/qcom_build_extensions:qtisocrepo_true": ["//soc-repo:{}/drivers/soc/qcom/bam_dmux".format(kernel_build_variant)],
+		"//build/qcom_build_extensions:qtisocrepo_false": [],
+	}),
         copts = ["-Wno-misleading-indentation"],
     )
     pkg_files(
